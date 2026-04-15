@@ -1,0 +1,52 @@
+---
+title: "Final Project"
+author: "Hayden Beyer"
+format: 
+  html:
+    embed-resources: true
+---
+
+```{r}
+library(tidyverse)
+exped_tidy <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2025/2025-01-21/exped_tidy.csv')
+peaks_tidy <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2025/2025-01-21/peaks_tidy.csv')
+
+
+peaks_tidy$PKNAME
+
+mean(peaks_tidy$HEIGHTM)
+mean(peaks_tidy$HEIGHTF)
+
+```
+
+
+```{r}
+exped_rank <- exped_tidy |> group_by(PEAKID) |> summarise(count = n()) |> ungroup() |> arrange(desc(count)) |> slice(1:10)
+
+ggplot(exped_rank, aes(x = count, y = fct_reorder(PEAKID, count))) +
+  geom_col() +
+  labs(
+    title = "Top 10 Most Popular Peaks",
+    subtitle = "Based on total expedition counts",
+    x = "Number of Expeditions",
+    y = "Peak ID"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+exped_nation <- exped_tidy |> group_by(NATION) |> summarise(count = n()) |> ungroup() |> arrange(desc(count)) |> slice(1:10)
+
+
+ggplot(exped_nation, aes(x = count, y = fct_reorder(NATION, count))) +
+  geom_col() +
+  labs(
+    title = "Top 10 Most Popular Nations",
+    subtitle = "Based on total expedition counts",
+    x = "Count",
+    y = "Nations"
+  ) +
+  theme_minimal()
+```
+
+
