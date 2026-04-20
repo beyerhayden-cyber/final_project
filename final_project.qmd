@@ -92,7 +92,15 @@ model_df <- exped_tidy |>
     O2USED = factor(O2USED),
     SEASON_FACTOR = factor(SEASON_FACTOR)
   ) |>
-  filter(!is.na(success_binary))
+  filter(!is.na(success_binary)) |> filter(!is.na(success_binary), !is.na(O2USED), !is.na(TOTHIRED)) |>
+  mutate(hired_cat = case_when(
+    TOTHIRED == 0  ~ "None (0)",
+    TOTHIRED <= 5  ~ "Low (1-5)",
+    TOTHIRED <= 15 ~ "Medium (6-15)",
+    TOTHIRED > 15  ~ "High (15+)"
+  ),
+  # Ensure they appear in the correct order in the plot
+  hired_cat = fct_relevel(hired_cat, "None (0)", "Low (1-5)", "Medium (6-15)", "High (15+)"))
 
 
 ```
@@ -101,8 +109,93 @@ model_df <- exped_tidy |>
 library(tidyr)
 library(broom)
 
-success_gLm <- glm(success_binary ~ O2USED + HEIGHTM + TOTHIRED, family = "binomial", data = model_df)
+success_glm <- glm(success_binary ~  HEIGHTM + O2USED +  TOTHIRED, family = "binomial", data = model_df)
 
-success_gLm
+success_glm |> tidy()
+
+ggplot(data = model_df, aes(x = TOTHIRED, y = success_binary)) +
+  geom_jitter(height = 0.05) +
+  geom_smooth(method = "glm", method.args = list(family = "binomial")) +
+  theme_minimal()
+
+
+library(ggeffects)
+ggpredict(success_glm, terms = c("HEIGHTM", "O2USED", "TOTHIRED"))
+
+preds_success <- ggpredict(success_glm, terms = c("HEIGHTM [all]", "O2USED", "TOTHIRED")) |>
+  as.data.frame(terms_to_colnames = TRUE) |> 
+
+
+ggplot(data = preds_success, aes(x = HEIGHTM, y = predicted)) +  geom_line(aes(colour = O2USED), linewidth = 1.5) + 
+  facet_wrap(~ TOTHIRED) + 
+  scale_colour_viridis_d() + 
+  geom_jitter(data = model_df, aes(y = success_binary, colour = O2USED), width = 0, height = 0.04) +   
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = O2USED), 
+              alpha = 0.3) + 
+  scale_fill_viridis_d()
+```
+
+
+# AI Fix
+```{r}
+library(tidyr)
+library(broom)
+library(ggeffects)
+library(ggplot2)
+
+# 1. Fit the model
+success_glm <- glm(success_binary ~ HEIGHTM + O2USED + hired_cat, 
+                   family = "binomial", 
+                   data = model_df)
+
+# 2. Generate predictions (Pipe ends here!)
+preds_success <- ggpredict(success_glm, terms = c("HEIGHTM [all]", "O2USED", "hired_cat")) |>
+  as.data.frame() # Removed the trailing |> 
+
+# 3. Plot
+# Note: x, y, and group names from ggpredict are often 'x', 'predicted', 'group', and 'facet'
+# depending on your ggeffects version. Check colnames(preds_success) if this errors.
+
+ggplot(data = preds_success, aes(x = x, y = predicted)) + 
+  geom_line(aes(colour = group), linewidth = 1.5) + 
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.3) + 
+  # Use the original data for points, but force the factor to 0/1
+  geom_jitter(data = model_df, 
+              aes(x = HEIGHTM, y = as.numeric(success_binary) - 1, colour = O2USED), 
+              width = 0, height = 0.04, alpha = 0.3) + 
+  facet_wrap(~ facet) + 
+  scale_colour_viridis_d() + 
+  scale_fill_viridis_d() +
+  theme_minimal() +
+  labs(x = "Peak Height (m)", y = "Probability of Success", colour = "Oxygen Used", fill = "Oxygen Used")
+
+
+
+
+
+```
+
+
+
+# Linear Model
+```{r}
+# Filter for successful expeditions only to model time-to-summit
+duration_df <- model_df %>%
+  filter(SUCCESS1 == TRUE, SMTDAYS > 0, SMTDAYS < 100)
+
+# Fit the model
+duration_fit <- lm(SMTDAYS ~ HEIGHTM + CAMPS + ROPE + SEASON_FACTOR, data = duration_df)
+
+duration_fit |> tidy()
+
+
+# Visualize the effect of Peak Height on Time to Summit
+ggplot(duration_df, aes(x = HEIGHTM, y = SMTDAYS)) +
+  geom_jitter(alpha = 0.2, color = "steelblue") +
+  geom_smooth(method = "lm", color = "darkred") +
+  labs(title = "Impact of Peak Height on Days to Summit",
+       x = "Peak Height (meters)",
+       y = "Days to Reach Summit") +
+  theme_minimal()
 ```
 
