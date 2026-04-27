@@ -20,7 +20,6 @@ peaks_tidy$PKNAME
 
 mean(peaks_tidy$HEIGHTM)
 mean(peaks_tidy$HEIGHTF)
-
 ```
 
 
@@ -113,11 +112,11 @@ success_glm <- glm(success_binary ~  HEIGHTM + O2USED +  TOTHIRED, family = "bin
 
 success_glm |> tidy()
 
-ggplot(data = model_df, aes(x = TOTHIRED, y = success_binary)) +
-  geom_jitter(height = 0.05) +
-  geom_smooth(method = "glm", method.args = list(family = "binomial")) +
-  theme_minimal()
+model_df <- model_df |>
+  mutate(success_num = as.numeric(success_binary) - 1)
 
+success_glm <- glm(success_num ~ HEIGHTM + O2USED + TOTHIRED,
+                   family = "binomial", data = model_df)
 
 library(ggeffects)
 ggpredict(success_glm, terms = c("HEIGHTM", "O2USED", "TOTHIRED"))
@@ -126,13 +125,12 @@ preds_success <- ggpredict(success_glm, terms = c("HEIGHTM [all]", "O2USED", "TO
   as.data.frame(terms_to_colnames = TRUE) |> 
 
 
-ggplot(data = preds_success, aes(x = HEIGHTM, y = predicted)) +  geom_line(aes(colour = O2USED), linewidth = 1.5) + 
-  facet_wrap(~ TOTHIRED) + 
-  scale_colour_viridis_d() + 
-  geom_jitter(data = model_df, aes(y = success_binary, colour = O2USED), width = 0, height = 0.04) +   
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = O2USED), 
-              alpha = 0.3) + 
-  scale_fill_viridis_d()
+ggplot(data = model_df, aes(x = TOTHIRED, y = as.numeric(success_binary) - 1)) +
+  geom_jitter(height = 0.05) +
+  geom_smooth(method = "glm", method.args = list(family = "binomial")) +
+  scale_y_continuous(breaks = c(0, 1), labels = c("Failure", "Success")) +
+  labs(y = "success_binary") +
+  theme_minimal()
 ```
 
 
@@ -198,4 +196,6 @@ ggplot(duration_df, aes(x = HEIGHTM, y = SMTDAYS)) +
        y = "Days to Reach Summit") +
   theme_minimal()
 ```
+
+
 
