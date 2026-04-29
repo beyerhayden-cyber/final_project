@@ -9,20 +9,17 @@ format:
 ## Abstract
 - The Himalayan Database is a comprehensive archive documenting mountaineering expeditions in the Nepal Himalaya. This data is rich in historical value, detailing the peaks, expeditions, climbing statuses, and geographic information of numerous Himalayan summits. I will explore these data in two tidy tibbles, making it easier to analyze trends in mountaineering expeditions, including seasonality, success rates, and national participation over time. To manage  size, the expeditions file was filtered down to the years 2020-2024.
 
-
-```{r}
+# Data Read
+```{r message=FALSE}
 library(tidyverse)
 exped_tidy <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2025/2025-01-21/exped_tidy.csv')
 peaks_tidy <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2025/2025-01-21/peaks_tidy.csv')
-
-
-peaks_tidy$PKNAME
-
-mean(peaks_tidy$HEIGHTM)
-mean(peaks_tidy$HEIGHTF)
+# peaks_tidy$PKNAME
+# mean(peaks_tidy$HEIGHTM)
+# mean(peaks_tidy$HEIGHTF)
 ```
 
-
+# Top 10 Most Popualar Peaks
 ```{r}
 exped_rank <- exped_tidy |> group_by(PEAKID) |> summarise(count = n()) |> ungroup() |> arrange(desc(count)) |> slice(1:10)
 
@@ -37,7 +34,8 @@ ggplot(exped_rank, aes(x = count, y = fct_reorder(PEAKID, count))) +
   theme_minimal()
 ```
 
-```{r}
+# Top 10 Most Popualar Peaks
+```{r message=FALSE}
 exped_nation <- exped_tidy |> group_by(NATION) |> summarise(count = n()) |> ungroup() |> arrange(desc(count)) |> slice(1:10)
 
 
@@ -52,8 +50,8 @@ ggplot(exped_nation, aes(x = count, y = fct_reorder(NATION, count))) +
   theme_minimal()
 ```
 
-# PEAKs
-```{r}
+# Avg Range Height
+```{r message=FALSE}
 range_avgheight <- peaks_tidy |> group_by(HIMAL_FACTOR) |> summarise(mean_height = mean(HEIGHTF)) |> ungroup() |> arrange(desc(mean_height)) 
 
 ggplot(range_avgheight, aes(x = mean_height, y = fct_reorder(HIMAL_FACTOR, mean_height))) +
@@ -67,22 +65,18 @@ ggplot(range_avgheight, aes(x = mean_height, y = fct_reorder(HIMAL_FACTOR, mean_
 ```
 
 
-## NUM Deaths
-```{r}
+## NUM Deaths and NoHired
+```{r message=FALSE}
 exped_tidy |> group_by(HDEATHS, MDEATHS) |> summarise(no_deaths = n())
   
-
-
 exped_tidy |> group_by(NOHIRED) |> summarise(count = n())
 
 unique(exped_tidy$TERMREASON_FACTOR)
-
-
 ```
 
 
-# Joining the graph and modeling
-```{r}
+# Joining the datasets for models
+```{r message=FALSE}
 library(tidyverse)
 model_df <- exped_tidy |>
   left_join(peaks_tidy, by = "PEAKID") |>
@@ -104,7 +98,9 @@ model_df <- exped_tidy |>
 
 ```
 
-```{r}
+
+# Number of hired personnel (above base camp) vs Success Rate
+```{r message=FALSE}
 library(tidyr)
 library(broom)
 
@@ -122,7 +118,15 @@ library(ggeffects)
 ggpredict(success_glm, terms = c("HEIGHTM", "O2USED", "TOTHIRED"))
 
 preds_success <- ggpredict(success_glm, terms = c("HEIGHTM [all]", "O2USED", "TOTHIRED")) |>
-  as.data.frame(terms_to_colnames = TRUE) |> 
+  as.data.frame(terms_to_colnames = TRUE) 
+
+
+ggplot(data = model_df, aes(x = HEIGHTM, y = as.numeric(success_binary) - 1)) +
+  geom_jitter(height = 0.05) +
+  geom_smooth(method = "glm", method.args = list(family = "binomial")) +
+  scale_y_continuous(breaks = c(0, 1), labels = c("Failure", "Success")) +
+  labs(y = "success_binary") +
+  theme_minimal()
 
 
 ggplot(data = model_df, aes(x = TOTHIRED, y = as.numeric(success_binary) - 1)) +
@@ -134,8 +138,8 @@ ggplot(data = model_df, aes(x = TOTHIRED, y = as.numeric(success_binary) - 1)) +
 ```
 
 
-# AI Fix
-```{r}
+# Probability of Success Base of Hired No. Personel, Peak Height and Oxygen Use. 
+```{r message=FALSE}
 library(tidyr)
 library(broom)
 library(ggeffects)
@@ -167,16 +171,28 @@ ggplot(data = preds_success, aes(x = x, y = predicted)) +
   theme_minimal() +
   labs(x = "Peak Height (m)", y = "Probability of Success", colour = "Oxygen Used", fill = "Oxygen Used")
 
+```
 
 
+# GLM Probability of Success
+```{r message=FALSE}
+success_glm <- glm(success_binary ~ HEIGHTM + O2USED + hired_cat + SEASON_FACTOR + TOTMEMBERS, 
+                   family = "binomial", 
+                   data = model_df)
 
-
+print(success_glm)
 ```
 
 
 
+
+
+
+
+
+
 # Linear Model
-```{r}
+```{r message=FALSE}
 # Filter for successful expeditions only to model time-to-summit
 duration_df <- model_df %>%
   filter(SUCCESS1 == TRUE, SMTDAYS > 0, SMTDAYS < 100)

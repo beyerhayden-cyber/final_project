@@ -1,0 +1,26 @@
+---
+title: "Final Project: The History of Himalayan Mountaineering Expeditions 2020-2024"
+format: revealjs
+editor: visual
+---
+
+## Introduction
+
+- The Himalayan Database is a comprehensive archive documenting mountaineering expeditions in the Nepal Himalaya. This data is rich in historical value, detailing the peaks, expeditions, climbing statuses, and geographic information of numerous Himalayan summits. I will explore these data in two tidy tibbles, making it easier to analyze trends in mountaineering expeditions, including seasonality, success rates, and national participation over time. To manage  size, the expeditions file was filtered down to the years 2020-2024.
+
+## Top 10 Most Popualar Peaks
+
+```{r}
+exped_rank <- exped_tidy |> group_by(PEAKID) |> summarise(count = n()) |> ungroup() |> arrange(desc(count)) |> slice(1:10)
+
+ggplot(exped_rank, aes(x = count, y = fct_reorder(PEAKID, count))) +
+  geom_col() +
+  labs(
+    title = "Top 10 Most Popular Peaks",
+    subtitle = "Based on total expedition counts",
+    x = "Number of Expeditions",
+    y = "Peak ID"
+  ) +
+  theme_minimal()
+```
+
