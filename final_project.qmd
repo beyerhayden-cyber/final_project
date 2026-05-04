@@ -7,7 +7,7 @@ format:
 ---
 
 ## Abstract
-- The Himalayan Database is a comprehensive archive documenting mountaineering expeditions in the Nepal Himalaya. This data is rich in historical value, detailing the peaks, expeditions, climbing statuses, and geographic information of numerous Himalayan summits. I will explore these data in two tidy tibbles, making it easier to analyze trends in mountaineering expeditions, including seasonality, success rates, and national participation over time. To manage  size, the expeditions file was filtered down to the years 2020-2024.
+- The Himalayan Database is a detailed archive documenting mountaineering expeditions in the  Himalayans. This data details the peaks, expeditions, climbing statuses, and geographic information of numerous Himalayan summits. I will explore these data in two tidy tibbles, making it easier to analyze trends in mountaineering expeditions, including seasonality, success rates, and national participation over time. To manage size, the expeditions file was filtered down to the recent years of 2020-2024.
 
 # Data Read
 ```{r message=FALSE}
@@ -20,42 +20,54 @@ peaks_tidy <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience
 ```
 
 # Top 10 Most Popualar Peaks
+- What are the most popular peaks that are hiked consistently in the Himalayas?
 ```{r}
-exped_rank <- exped_tidy |> group_by(PEAKID) |> summarise(count = n()) |> ungroup() |> arrange(desc(count)) |> slice(1:10)
+# Join to get PKNAME, then rank
+exped_rank <- exped_tidy |>
+  left_join(peaks_tidy |> select(PEAKID, PKNAME), by = "PEAKID") |>
+  group_by(PKNAME) |>
+  summarise(count = n()) |>
+  ungroup() |>
+  arrange(desc(count)) |>
+  slice(1:10)
 
-ggplot(exped_rank, aes(x = count, y = fct_reorder(PEAKID, count))) +
-  geom_col() +
+ggplot(exped_rank, aes(x = count, y = fct_reorder(PKNAME, count))) +
+  geom_col(fill = "blue") +
   labs(
     title = "Top 10 Most Popular Peaks",
-    subtitle = "Based on total expedition counts",
     x = "Number of Expeditions",
-    y = "Peak ID"
+    y = "Peak Name"
   ) +
   theme_minimal()
 ```
+- Here we see that Everest (the tallest mountain in the world) is the most popular. With 189 expeditions recorded from 2020-2024. The 3rd most hiked mountain has about half of the expeditions which sheds light onto the fact that people look for the sense of the accomplishment of climbing "the tallest mountain in the world" and go big or go home.
 
-# Top 10 Most Popualar Peaks
+
+# Top 10 Most Popualar Nations
+- Which ten nations had the highest participation in mountaineering expeditions between 2020 and 2024, what is the spread?
 ```{r message=FALSE}
 exped_nation <- exped_tidy |> group_by(NATION) |> summarise(count = n()) |> ungroup() |> arrange(desc(count)) |> slice(1:10)
 
 
 ggplot(exped_nation, aes(x = count, y = fct_reorder(NATION, count))) +
-  geom_col() +
+  geom_col(fill = "darkred") +
   labs(
-    title = "Top 10 Most Popular Nations",
-    subtitle = "Based on total expedition counts",
+    title = "Top 10 Most Popular Countries That Climb",
     x = "Count",
     y = "Nations"
   ) +
   theme_minimal()
 ```
+- The top 3 consist of Nepal, the USA, and the UK. These three nations are the only ones to surpass the 75+ expedition mark, with the USA and Nepal both exceeding 115. This shows that mountaineering expeditions are heavily concentrated in a small number of Western and Himalayan nations, with Nepal and the USA combined accounting for more expeditions than the bottom five countries on the list combined.
+
 
 # Avg Range Height
+- What mountain ranges have the highest average elevations, and does the average height of each look like across these top ranking ranges?
 ```{r message=FALSE}
-range_avgheight <- peaks_tidy |> group_by(HIMAL_FACTOR) |> summarise(mean_height = mean(HEIGHTF)) |> ungroup() |> arrange(desc(mean_height)) 
+range_avgheight <- peaks_tidy |> group_by(HIMAL_FACTOR) |> summarise(mean_height = mean(HEIGHTF)) |> ungroup() |> arrange(desc(mean_height)) |> slice(1:10)
 
 ggplot(range_avgheight, aes(x = mean_height, y = fct_reorder(HIMAL_FACTOR, mean_height))) +
-  geom_col() +
+  geom_col(fill = "tan") +
   labs(
     title = "AVG Mountain Range Height (FT)",
     x = "AVG Height",
@@ -63,10 +75,10 @@ ggplot(range_avgheight, aes(x = mean_height, y = fct_reorder(HIMAL_FACTOR, mean_
   ) +
   theme_minimal()
 ```
-
+- This graph shows that these ranges represent the Himayalans as a high-altitude plateau. While there is a clear leader in Kangchenjunga, the "lowest" range on this top-ten list is still higher than some of the highest individual peaks in most other continents. The difference between the 1st ranked range and the 10th ranked range (Ganesh/Shringi at 21,638 ft) is only 2,108 feet. This show how close these ranges are in average height. 
 
 ## NUM Deaths and NoHired
-```{r message=FALSE}
+```{r message=FALSE, results = 'hide'}
 exped_tidy |> group_by(HDEATHS, MDEATHS) |> summarise(no_deaths = n())
   
 exped_tidy |> group_by(NOHIRED) |> summarise(count = n())
@@ -74,6 +86,68 @@ exped_tidy |> group_by(NOHIRED) |> summarise(count = n())
 unique(exped_tidy$TERMREASON_FACTOR)
 ```
 
+# Expedition Deaths
+- Are expeditions without hired personnel more dangerous?
+```{r}
+hired_deaths <- exped_tidy |>
+  mutate(
+    any_death = (HDEATHS + MDEATHS) > 0,
+    hired_status = if_else(NOHIRED == TRUE, "No Hired Personnel", "Hired Personnel")
+  ) |>
+  group_by(hired_status) |>
+  summarise(
+    total_expeditions = n(),
+    expeditions_with_death = sum(any_death, na.rm = TRUE),
+    death_rate = expeditions_with_death / total_expeditions
+  )
+
+ggplot(hired_deaths, aes(x = hired_status, y = death_rate, fill = hired_status)) +
+  geom_col(width = 0.5, show.legend = FALSE) +
+  scale_y_continuous(
+    labels = scales::percent_format(),
+    limits = c(0, 0.08)
+  ) +
+  scale_fill_manual(values = c("Hired Personnel" = "blue", "No Hired Personnel" = "red")) +
+  labs(
+    title = "Death Rates With and Without Hired Personnel",
+    x = NULL,
+    y = "% of Expeditions with a Death"
+  ) +
+  theme_minimal()
+# AI was used to figure out how to scale the y axis in percent format: Question - "What syntax do you use to add percents to y axis"
+```
+- Expeditions with Hired Personnel have a death rate of 4.8%, which is more than double the 2.1% rate seen in expeditions with No Hired Personnel. However, there is a significant difference in the total number of expeditions between the two groups. There were 736 expeditions with hired staff compared to only 146 without. This suggests that the majority of expeditions rely on professional support. While the percentage is higher for hired expeditions, this does not necessarily mean hired staff make an expedition more dangerous, but rather it may display that hired personnel are typically used for more difficult, higher-altitude, or higher-risk peaks (like Everest) where self done expeditions might have lower risk.
+
+
+# Death Heatmaps
+- Is there a correlation between the number of deaths among hired staff versus expedition members, and which group typically has a higher mortality?
+```{r}
+deaths_df <- exped_tidy |>
+  group_by(HDEATHS, MDEATHS) |>
+  summarise(no_deaths = n(), .groups = "drop") |>
+  mutate(
+    HDEATHS = factor(HDEATHS),
+    MDEATHS = factor(MDEATHS)
+  )
+
+ggplot(deaths_df, aes(x = HDEATHS, y = MDEATHS, fill = no_deaths)) +
+  geom_tile(colour = "darkgray", linewidth = 0.8) +
+  geom_text(aes(label = no_deaths), colour = "gray", fontface = "bold", size = 4) +
+  scale_fill_viridis_c(
+    option = "plasma",
+    direction = -1,
+    trans = "log10",        
+  ) +
+  labs(
+    title = "Expedition Fatalities: Hired Staff vs. Members",
+    x = "Hired Staff Deaths",
+    y = "Member Deaths",
+    fill = "# of Exped."
+  ) +
+  theme_minimal()
+# AI was used in this graph to add log scale. Question: How do I scale this down?
+```
+The majority of expeditions (844 of 882) result in zero deaths of any kind. Deaths among hired staff and members tend to occur independently. Events with multiple fatalities involving both groups at the same time are extremely rare. Instead, they are usually isolated incidents involving one or two individuals, with expedition members appearing to die at a slightly higher rate in single death scenarios than the hired staff. This makes sense as the hired staff tends to be more prepared and experienced, however, accidents can still happen. 
 
 # Joining the datasets for models
 ```{r message=FALSE}
@@ -92,15 +166,38 @@ model_df <- exped_tidy |>
     TOTHIRED <= 15 ~ "Medium (6-15)",
     TOTHIRED > 15  ~ "High (15+)"
   ),
-  # Ensure they appear in the correct order in the plot
   hired_cat = fct_relevel(hired_cat, "None (0)", "Low (1-5)", "Medium (6-15)", "High (15+)"))
-
-
 ```
+
+# Success Rate by Season
+Which season is the expedition success rate the highest?
+```{r}
+season_success <- exped_tidy |>
+  group_by(SEASON_FACTOR) |>
+  summarise(
+    total = n(),
+    successes = sum(SUCCESS1, na.rm = TRUE),
+    success_rate = successes / total
+  ) |>
+  filter(!is.na(SEASON_FACTOR))
+
+ggplot(season_success, aes(x = fct_reorder(SEASON_FACTOR, success_rate),
+                            y = success_rate)) +
+  geom_col(fill = "darkgreen") +
+  scale_y_continuous(labels = scales::percent_format()) +
+  labs(
+    title = "Expedition Success Rate by Season",
+    x = "Season",
+    y = "Success Rate"
+  ) +
+  theme_minimal()
+```
+Spring is the most successful season for expeditions, with a success rate exceeding 75%. This is makes sense as there is this thing called pre-monsoon window when weather is most stable for high-altitude summits. Winter is the most difficult season, with a success rate of roughly 33%. This drop-off sheds some light on the extreme difficulty of climbing in below zero temperatures with high winds and limited daylight. This shows how timing is an important factor for expedition success. Most climbers choose Spring or Autumn because they are the best weather and thus have a high success rate. The high success rates for these seasons are backed by hundreds of expeditions, whereas the Summer (5) and Winter (21) reflect the samller efforts of a much smaller group of people.
 
 
 # Number of hired personnel (above base camp) vs Success Rate
-```{r message=FALSE}
+- To what extent does the total number of hired personnel influence the probability of a successful expedition?
+```{r message=FALSE, results = 'hide'}
 library(tidyr)
 library(broom)
 
@@ -119,16 +216,10 @@ ggpredict(success_glm, terms = c("HEIGHTM", "O2USED", "TOTHIRED"))
 
 preds_success <- ggpredict(success_glm, terms = c("HEIGHTM [all]", "O2USED", "TOTHIRED")) |>
   as.data.frame(terms_to_colnames = TRUE) 
+```
 
 
-ggplot(data = model_df, aes(x = HEIGHTM, y = as.numeric(success_binary) - 1)) +
-  geom_jitter(height = 0.05) +
-  geom_smooth(method = "glm", method.args = list(family = "binomial")) +
-  scale_y_continuous(breaks = c(0, 1), labels = c("Failure", "Success")) +
-  labs(y = "success_binary") +
-  theme_minimal()
-
-
+```{r message=FALSE}
 ggplot(data = model_df, aes(x = TOTHIRED, y = as.numeric(success_binary) - 1)) +
   geom_jitter(height = 0.05) +
   geom_smooth(method = "glm", method.args = list(family = "binomial")) +
@@ -137,31 +228,33 @@ ggplot(data = model_df, aes(x = TOTHIRED, y = as.numeric(success_binary) - 1)) +
   theme_minimal()
 ```
 
+- The blue regression line shows that as the number of hired personnel increases, the probability of expedition success also increases significantly. Hiring professional personnel is a major predictor of success. The curve begins to flatten out after roughly 30 hired personnel. This suggests that while more staff generally helps, there is a threshold beyond which adding more personnel provides very little additional help to the success probability.
+
 
 # Probability of Success Base of Hired No. Personel, Peak Height and Oxygen Use. 
-```{r message=FALSE}
+How does the probability of expedition success change as peak height increases, and to what extent do supplemental oxygen and different levels of hired support help the as mountains go to higher elevations?
+```{r message=FALSE, results = 'hide'}
 library(tidyr)
 library(broom)
 library(ggeffects)
 library(ggplot2)
 
-# 1. Fit the model
+
 success_glm <- glm(success_binary ~ HEIGHTM + O2USED + hired_cat, 
                    family = "binomial", 
                    data = model_df)
 
-# 2. Generate predictions (Pipe ends here!)
+
 preds_success <- ggpredict(success_glm, terms = c("HEIGHTM [all]", "O2USED", "hired_cat")) |>
-  as.data.frame() # Removed the trailing |> 
+  as.data.frame()
 
-# 3. Plot
-# Note: x, y, and group names from ggpredict are often 'x', 'predicted', 'group', and 'facet'
-# depending on your ggeffects version. Check colnames(preds_success) if this errors.
 
+```
+
+```{r message=FALSE, }
 ggplot(data = preds_success, aes(x = x, y = predicted)) + 
   geom_line(aes(colour = group), linewidth = 1.5) + 
   geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.3) + 
-  # Use the original data for points, but force the factor to 0/1
   geom_jitter(data = model_df, 
               aes(x = HEIGHTM, y = as.numeric(success_binary) - 1, colour = O2USED), 
               width = 0, height = 0.04, alpha = 0.3) + 
@@ -170,11 +263,12 @@ ggplot(data = preds_success, aes(x = x, y = predicted)) +
   scale_fill_viridis_d() +
   theme_minimal() +
   labs(x = "Peak Height (m)", y = "Probability of Success", colour = "Oxygen Used", fill = "Oxygen Used")
-
 ```
+In every scenario, the probability of success drops as Peak Height increases. This drop is most apparent for climbers not using supplemental oxygen (the dark purple lines). Comparing the four facets, None (0), Low (1-5), Medium (6-15), and High (15+), shows that increasing the number of hired personnel flattens the curve going down. It is interesting to point out that with High (15+) hired support, those not using oxygen still have a higher success rate at around 8,000 meters than those with no support at the same height. Generally speaking the gap between oxygen users and non users only really becomes a critical point as expeditions move into the death zone (above 7,500–8,000 meters).
 
 
 # GLM Probability of Success
+- When accounting for geography, equipment, staffing, and timing, what are the main drivers of mountaineering success, and which predictors show the greatest risk of failure?
 ```{r message=FALSE}
 success_glm <- glm(success_binary ~ HEIGHTM + O2USED + hired_cat + SEASON_FACTOR + TOTMEMBERS, 
                    family = "binomial", 
@@ -182,36 +276,66 @@ success_glm <- glm(success_binary ~ HEIGHTM + O2USED + hired_cat + SEASON_FACTOR
 
 print(success_glm)
 ```
+# Model Breakdown
+Coefficients:
 
+- Peak Height (HEIGHTM): The coefficient is negative (-0.001049), which means for every additional meter of peak height, the log-odds of success decrease slightly, which makes sense.
 
+- Oxygen Use (O2USEDTRUE): The strongest positive predictor in the model (2.908885). Using supplemental oxygen increases the log-odds of reaching the summit compared to not using it, which makes sense.
 
+- Hired Support (hired_cat): All levels of hired support show positive coefficients relative to the baseline (None). The effect grows higher as more staff are added, Low is 0.65, Medium is 0.99, and High is 1.86.
 
+- Seasonality (SEASON_FACTOR):Spring (0.043) and Summer (0.15) have positive coefficients, indicating they are more favorable for success than the baseline (Autumn). Winter has a significant negative coefficient (-0.717), identifying it as the most difficult season for success. It is important to note that as previously mentioned summer season is not very popular for hiking which gives a false sense of success. In actuality, Autumn and Spring are the most popular hiking seasons due to their mild climates. 
 
-
-
-
+- Team Size (TOTMEMBERS): This has a small positive coefficient (0.041), showing that larger teams may correlate with higher success rates.
 
 # Linear Model
+- Among successful expeditions, which variables significantly increase or decrease the time required to reach the summit?
 ```{r message=FALSE}
-# Filter for successful expeditions only to model time-to-summit
 duration_df <- model_df %>%
   filter(SUCCESS1 == TRUE, SMTDAYS > 0, SMTDAYS < 100)
 
-# Fit the model
 duration_fit <- lm(SMTDAYS ~ HEIGHTM + CAMPS + ROPE + SEASON_FACTOR, data = duration_df)
 
 duration_fit |> tidy()
 
+```
+# Model Breakdown
+Coefficients:
 
+- Height of Peak (HEIGHTM) 0.00421: For every 1,000 meters of additional height, the expedition duration increases by about 4.2 days. This is statistically highly significant with a high p value. 
+
+- Number of Camps (CAMPS) 2.99: Each additional camp established above base camp adds approximately 3 days to the total expedition time. This is probably for the time needed to transport supplies and acclimate at each new level.
+
+- Seasonality (SEASON_FACTOR): Spring: 4.60 days. Compared to the baseline (Autumn), successful Spring expeditions take about 4.6 days longer.
+- Seasonality (SEASON_FACTOR): Winter: 10.6 days. Compared to the baseline (Autumn), Winter successful climbs take significantly longer 11 extra days. The harsh conditions and limited visibility likely slow the progress.
+- Seasonality (SEASON_FACTOR): Summer: -1.68 days. This is not statistically significant (p=0.746), likely due to the small sample size for summer climbs mentioned in previous data.
+
+
+
+# Impact of Peak Height on Days to Summit 
+- How much variability exists in successful summit times at extreme altitudes?
+```{r message=FALSE}
 # Visualize the effect of Peak Height on Time to Summit
 ggplot(duration_df, aes(x = HEIGHTM, y = SMTDAYS)) +
-  geom_jitter(alpha = 0.2, color = "steelblue") +
-  geom_smooth(method = "lm", color = "darkred") +
+  geom_jitter(alpha = 0.2, color = "blue") +
+  geom_smooth(method = "lm", color = "red") +
   labs(title = "Impact of Peak Height on Days to Summit",
        x = "Peak Height (meters)",
        y = "Days to Reach Summit") +
   theme_minimal()
 ```
+- While a 6,000m peak can often be reached in under two weeks, an 8,000m+ peak guarantees a month-long commitment, with a high amount of unpredictability regarding the exact summit day.
 
+
+
+# Conclusion
+My analysis of Himalayan mountaineering expeditions from 2020–2024 shows and revealed several clear patterns about what separates successful climbs from failed ones, and what makes these mountains so challenging.
+
+The most important finding is that success on high-altitude peaks is not a matter of one single factor, but rather the combination of several key decisions all together. Using supplemental oxygen was the single strongest predictor of summit success in the logistic model, but hiring experienced support staff, choosing the right season, and picking the right peak all compound on top of that. Climbers who were able to check all of these boxes were more likely to reach the summit than those who did not. Timing matters more than most people might expect. Spring stands out as the dominant season for success, with a success rate exceeding 75%, while Winter expeditions barely clear 33%. The pre-monsoon weather window in Spring is not just a preference, it is pretty much a requirement for the most difficult peaks.
+
+The death analysis provided some important context as well. The vast majority of expeditions, over 95%, result in zero fatalities, which speaks to how seriously the modern mountaineering community takes safety preparation. The finding that expeditions with hired personnel had a higher raw death rate than those without is counterintuitive at first, but is best explained by the fact that hired staff are concentrated on the most dangerous, highest-altitude peaks like Everest, where risk is inherently greater regardless of preparation.Finally, the linear model sheds some light and details to the fact that altitude has a compounding cost in time. Every additional camp and every additional thousand meters adds days to a summit attempt, and at extreme altitudes the variability in outcomes grows substantially. It is important to note that most of these factors are common sense. However, it is interesting to look at the specifc relationships and have the ability to quantify these experiences. 
+
+Looking on what more I could do. A valuable extension of this work could be to incorporate the full historical database rather than the 2020–2024 window, which would allow for long term analysis across decades of climbing history. It would also be worth exploring individual peak-level models, since grouping Everest and a 6,000m trekking peak into the same analysis likely hides important differences in what drives success at each level.
 
 
