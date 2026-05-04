@@ -18,4 +18,118 @@ peaks_tidy <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience
 
 ### Questions
 
-### Graph Title
+- Is there a correlation between the number of deaths among hired staff
+  versus expedition members, and which group typically has a higher
+  mortality?
+
+- How does the probability of expedition success change as peak height
+  increases, and to what extent do supplemental oxygen and different
+  levels of hired support help the as mountains go to higher elevations?
+
+# Death Heatmaps
+
+``` r
+deaths_df <- exped_tidy |>
+  group_by(HDEATHS, MDEATHS) |>
+  summarise(no_deaths = n(), .groups = "drop") |>
+  mutate(
+    HDEATHS = factor(HDEATHS),
+    MDEATHS = factor(MDEATHS)
+  )
+
+ggplot(deaths_df, aes(x = HDEATHS, y = MDEATHS, fill = no_deaths)) +
+  geom_tile(colour = "darkgray", linewidth = 0.8) +
+  geom_text(aes(label = no_deaths), colour = "gray", fontface = "bold", size = 4) +
+  scale_fill_viridis_c(
+    option = "plasma",
+    direction = -1,
+    trans = "log10",        
+  ) +
+  labs(
+    title = "Expedition Fatalities: Hired Staff vs. Members",
+    x = "Hired Staff Deaths",
+    y = "Member Deaths",
+    fill = "# of Exped."
+  ) +
+  theme_minimal()
+```
+
+![](README_files/figure-commonmark/unnamed-chunk-2-1.png)
+
+``` r
+# AI was used in this graph to add log scale. Question: How do I scale this down?
+```
+
+The majority of expeditions (844 of 882) result in zero deaths of any
+kind. Deaths among hired staff and members tend to occur independently.
+Events with multiple fatalities involving both groups at the same time
+are extremely rare. Instead, they are usually isolated incidents
+involving one or two individuals, with expedition members appearing to
+die at a slightly higher rate in single death scenarios than the hired
+staff. This makes sense as the hired staff tends to be more prepared and
+experienced, however, accidents can still happen.
+
+# Probability of Success Base of Hired No. Personel, Peak Height and Oxygen Use.
+
+``` r
+library(tidyverse)
+model_df <- exped_tidy |>
+  left_join(peaks_tidy, by = "PEAKID") |>
+  mutate(
+    success_binary = factor(ifelse(SUCCESS1, "Success", "Failure")),
+    O2USED = factor(O2USED),
+    SEASON_FACTOR = factor(SEASON_FACTOR)
+  ) |>
+  filter(!is.na(success_binary)) |> filter(!is.na(success_binary), !is.na(O2USED), !is.na(TOTHIRED)) |>
+  mutate(hired_cat = case_when(
+    TOTHIRED == 0  ~ "None (0)",
+    TOTHIRED <= 5  ~ "Low (1-5)",
+    TOTHIRED <= 15 ~ "Medium (6-15)",
+    TOTHIRED > 15  ~ "High (15+)"
+  ),
+  hired_cat = fct_relevel(hired_cat, "None (0)", "Low (1-5)", "Medium (6-15)", "High (15+)"))
+```
+
+``` r
+library(tidyr)
+library(broom)
+library(ggeffects)
+library(ggplot2)
+
+
+success_glm <- glm(success_binary ~ HEIGHTM + O2USED + hired_cat, 
+                   family = "binomial", 
+                   data = model_df)
+
+
+preds_success <- ggpredict(success_glm, terms = c("HEIGHTM [all]", "O2USED", "hired_cat")) |>
+  as.data.frame()
+```
+
+``` r
+ggplot(data = preds_success, aes(x = x, y = predicted)) + 
+  geom_line(aes(colour = group), linewidth = 1.5) + 
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.3) + 
+  geom_jitter(data = model_df, 
+              aes(x = HEIGHTM, y = as.numeric(success_binary) - 1, colour = O2USED), 
+              width = 0, height = 0.04, alpha = 0.3) + 
+  facet_wrap(~ facet) + 
+  scale_colour_viridis_d() + 
+  scale_fill_viridis_d() +
+  theme_minimal() +
+  labs(x = "Peak Height (m)", y = "Probability of Success", colour = "Oxygen Used", fill = "Oxygen Used")
+```
+
+![](README_files/figure-commonmark/unnamed-chunk-5-1.png)
+
+In every scenario, the probability of success drops as Peak Height
+increases. This drop is most apparent for climbers not using
+supplemental oxygen (the dark purple lines). Comparing the four facets,
+None (0), Low (1-5), Medium (6-15), and High (15+), shows that
+increasing the number of hired personnel flattens the curve going down.
+It is interesting to point out that with High (15+) hired support, those
+not using oxygen still have a higher success rate at around 8,000 meters
+than those with no support at the same height. Generally speaking the
+gap between oxygen users and non users only really becomes a critical
+point as expeditions move into the death zone (above 7,500–8,000
+meters).

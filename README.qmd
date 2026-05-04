@@ -51,6 +51,25 @@ The majority of expeditions (844 of 882) result in zero deaths of any kind. Deat
 
 
 # Probability of Success Base of Hired No. Personel, Peak Height and Oxygen Use. 
+```{r message=FALSE}
+library(tidyverse)
+model_df <- exped_tidy |>
+  left_join(peaks_tidy, by = "PEAKID") |>
+  mutate(
+    success_binary = factor(ifelse(SUCCESS1, "Success", "Failure")),
+    O2USED = factor(O2USED),
+    SEASON_FACTOR = factor(SEASON_FACTOR)
+  ) |>
+  filter(!is.na(success_binary)) |> filter(!is.na(success_binary), !is.na(O2USED), !is.na(TOTHIRED)) |>
+  mutate(hired_cat = case_when(
+    TOTHIRED == 0  ~ "None (0)",
+    TOTHIRED <= 5  ~ "Low (1-5)",
+    TOTHIRED <= 15 ~ "Medium (6-15)",
+    TOTHIRED > 15  ~ "High (15+)"
+  ),
+  hired_cat = fct_relevel(hired_cat, "None (0)", "Low (1-5)", "Medium (6-15)", "High (15+)"))
+```
+
 ```{r message=FALSE, results = 'hide'}
 library(tidyr)
 library(broom)
