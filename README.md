@@ -1,6 +1,20 @@
-# Untitled
+# Himalayan Expeditions
 
 ### Data
+
+The Himalayan Database is a detailed archive documenting mountaineering
+expeditions in the Himalayans. This data details the peaks, expeditions,
+climbing statuses, and geographic information of numerous Himalayan
+summits. I will explore these data in two tidy tibbles, making it easier
+to analyze trends in mountaineering expeditions, including seasonality,
+success rates, and national participation over time. To manage size, the
+expeditions file was filtered down to the recent years of 2020-2024.
+
+``` r
+library(tidyverse)
+exped_tidy <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2025/2025-01-21/exped_tidy.csv')
+peaks_tidy <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2025/2025-01-21/peaks_tidy.csv')
+```
 
 ### Questions
 
