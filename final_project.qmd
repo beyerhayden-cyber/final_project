@@ -6,6 +6,8 @@ format:
     embed-resources: true
 ---
 
+https://github.com/beyerhayden-cyber
+
 ## Abstract
 - The Himalayan Database is a detailed archive documenting mountaineering expeditions in the  Himalayans. This data details the peaks, expeditions, climbing statuses, and geographic information of numerous Himalayan summits. I will explore these data in two tidy tibbles, making it easier to analyze trends in mountaineering expeditions, including seasonality, success rates, and national participation over time. To manage size, the expeditions file was filtered down to the recent years of 2020-2024.
 
@@ -336,6 +338,6 @@ The most important finding is that success on high-altitude peaks is not a matte
 
 The death analysis provided some important context as well. The vast majority of expeditions, over 95%, result in zero fatalities, which speaks to how seriously the modern mountaineering community takes safety preparation. The finding that expeditions with hired personnel had a higher raw death rate than those without is counterintuitive at first, but is best explained by the fact that hired staff are concentrated on the most dangerous, highest-altitude peaks like Everest, where risk is inherently greater regardless of preparation.Finally, the linear model sheds some light and details to the fact that altitude has a compounding cost in time. Every additional camp and every additional thousand meters adds days to a summit attempt, and at extreme altitudes the variability in outcomes grows substantially. It is important to note that most of these factors are common sense. However, it is interesting to look at the specifc relationships and have the ability to quantify these experiences. 
 
-Looking on what more I could do. A valuable extension of this work could be to incorporate the full historical database rather than the 2020–2024 window, which would allow for long term analysis across decades of climbing history. It would also be worth exploring individual peak-level models, since grouping Everest and a 6,000m trekking peak into the same analysis likely hides important differences in what drives success at each level.
+Looking on what more I could do. A valuable extension of this work cou be to incorporate the full historical database rather than the 2020–2024 window, which would allow for long term analysis across decades of climbing history. It would also be worth exploring individual peak-level models, since grouping Everest and a 6,000m trekking peak into the same analysis likely hides important differences in what drives success at each level.
 
 
